@@ -1,0 +1,6 @@
+name = "iriam-discord-api"
+main = "worker/index.js"
+compatibility_date = "2026-10-01"
+# Secrets and configuration are added in Cloudflare Settings > Variables and Secrets.
+# Do not put Discord Token or Firebase service-account JSON here.
+keep_vars = true

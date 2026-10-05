@@ -1,0 +1,17 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {previousMonth,zeroStreak,buildPlan,latestCompletedMonth,inviteMatch,validMonth} from '../worker/domain.js';
+const roles=['r0','r1','r2','r3','r4','r5'];
+const member={roleIds:['other','r3'],manageable:true,kickable:true,discordName:'test'};
+const make=(badges)=>({id:{badges}});
+const plan=(badges,m=member,month='2026-09',protectedIds=[])=>buildPlan(make(badges),{id:m},month,roles,protectedIds,'2026-09')[0];
+test('月の検証と年跨ぎ',()=>{assert.equal(previousMonth('2026-01'),'2025-12');assert.equal(validMonth('2026-13'),false);assert.equal(validMonth('../path'),false);});
+test('JSTで最新完了月',()=>{assert.equal(latestCompletedMonth(new Date('2026-09-30T15:00:00Z')),'2026-09');assert.equal(latestCompletedMonth(new Date('2026-09-30T14:59:59Z')),'2026-08');});
+test('0の連続は未入力や非ゼロで途切れる',()=>{assert.equal(zeroStreak({'2026-01':{star:0},'2025-12':{star:0}},'2026-01'),2);assert.equal(zeroStreak({'2026-09':{star:0},'2026-07':{star:0}},'2026-09'),1);assert.equal(zeroStreak({'2026-09':{star:1},'2026-08':{star:0}},'2026-09'),0);});
+test('未入力を0にしない',()=>assert.equal(plan({}).action,'skip'));
+test('2連続0だけkick',()=>{assert.equal(plan({'2026-09':{star:0}}).action,'role');assert.equal(plan({'2026-09':{star:0},'2026-08':{star:0}}).action,'kick');});
+test('保護者・owner・階層不可はkickしない',()=>{const b={'2026-09':{star:0},'2026-08':{star:0}};assert.equal(plan(b,member,'2026-09',['id']).action,'blocked');assert.equal(plan(b,{...member,owner:true}).action,'blocked');assert.equal(plan(b,{...member,kickable:false}).action,'blocked');});
+test('botと未参加は除外',()=>{assert.equal(plan({'2026-09':{star:0}},{...member,bot:true}).action,'skip');assert.equal(buildPlan(make({'2026-09':{star:5}}),{},'2026-09',roles,[],'2026-09')[0].action,'skip');});
+test('過去月はkickもroleも実行しない・未来拒否',()=>{assert.equal(plan({'2026-08':{star:0},'2026-07':{star:0}},member,'2026-08').action,'skip');assert.throws(()=>plan({},member,'2026-10'));});
+test('星3は変更なし・複数星なら修正',()=>{assert.equal(plan({'2026-09':{star:3}}).action,'none');assert.equal(plan({'2026-09':{star:3}},{...member,roleIds:['r2','r3','other']}).action,'role');});
+test('招待差分：一意だけ確定、複数・2人・新規は不明',()=>{assert.equal(inviteMatch({a:1},[{code:'a',uses:2}]),'a');assert.equal(inviteMatch({a:1},[{code:'a',uses:3}]),null);assert.equal(inviteMatch({a:1,b:1},[{code:'a',uses:2},{code:'b',uses:2}]),null);assert.equal(inviteMatch({},[{code:'new',uses:1}]),null);});
