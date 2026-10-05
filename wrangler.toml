@@ -1,4 +1,4 @@
-name = "iriam-discord-api"
+name = "servermanagement"
 main = "worker/index.js"
 compatibility_date = "2026-10-01"
 # Secrets and configuration are added in Cloudflare Settings > Variables and Secrets.
