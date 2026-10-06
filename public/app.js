@@ -22,7 +22,7 @@ function render(){
     cells[1].append(el('span',u.discordName||'不明'),el('small',u.discordId));if(u.invite?.status==='needs-review')cells[1].append(el('small','招待リンク要確認','alert'));
     cells[2].append(el('span',u.inServer?'在籍':'未参加 / 退出',u.inServer?'tag':''));
     cells[3].textContent=(u.currentRoles||[]).filter(Boolean).map(r=>r.name).join(' / ')||'なし';
-    cells[4].append(select([['','未入力'],...Array.from({length:6},(_,i)=>[String(i),`⭐${i}`])],star??'',v=>{u.badges=u.badges||{};if(v==='')delete u.badges[month];else u.badges[month]={star:Number(v)};}));
+    cells[4].append(select([['','未入力'],...Array.from({length:6},(_,i)=>[String(i),i===0?'⭐0（星ロールなし）':`⭐${i}`])],star??'',v=>{u.badges=u.badges||{};if(v==='')delete u.badges[month];else u.badges[month]={star:Number(v)};}));
     cells[5].textContent=u.badges?.[prev(month)]?.star===undefined?'未入力':`⭐${u.badges[prev(month)].star}`;cells[6].textContent=`${n}か月`;cells[7].append(el('span',n>=2&&u.inServer?'退去対象':'—',n>=2?'alert':''));
     cells[8].append(select(['未対応','対応中','完了','対象外'].map(v=>[v,v]),u.rewardStatus||'未対応',v=>u.rewardStatus=v));
     const single=el('button','確認');single.onclick=()=>run(()=>preview(u.discordId));cells[9].append(single);$('rows').append(tr);
@@ -30,7 +30,7 @@ function render(){
 }
 async function load(){const d=await api('/api/data');users=d.users;revision=d.revision;completed=d.latestCompletedMonth;if(!$('month').value)$('month').value=completed;activeMonth=$('month').value;dirty=false;invalidate();render();await invites();}
 async function preview(discordId=null){if(dirty)throw Error('Firebaseへ保存してから確認してください');showPlan(await api('/api/preview',{month:$('month').value,...(discordId?{discordId}:{})}));}
-function showPlan(p){plan=p;$('planRows').replaceChildren();for(const r of plan.rows){$('planRows').append(el('p',`${readableName(r.discordId,r.discordName)}：${{role:'ロール変更',kick:'キック',none:'変更なし',skip:'対象外',blocked:'実行不可'}[r.action]} ／ ${r.star===null?'未入力':`⭐${r.star}`} ／ ${r.reason}`,['kick','blocked'].includes(r.action)?'alert':''));}$('kickAck').checked=false;$('kickAckLabel').hidden=!plan.rows.some(r=>r.action==='kick');$('confirmation').showModal();msg('変更内容を確認してください。確認プランは10分間有効です。');}
+function showPlan(p){plan=p;$('planRows').replaceChildren();for(const r of plan.rows){$('planRows').append(el('p',`${readableName(r.discordId,r.discordName)}：${{role:'ロール変更',kick:'キック',none:'変更なし',skip:'対象外',blocked:'実行不可'}[r.action]} ／ ${r.star===null?'未入力':r.star===0?'⭐0（星ロールなし）':`⭐${r.star}`} ／ ${r.reason}`,['kick','blocked'].includes(r.action)?'alert':''));}$('kickAck').checked=false;$('kickAckLabel').hidden=!plan.rows.some(r=>r.action==='kick');$('confirmation').showModal();msg('変更内容を確認してください。確認プランは10分間有効です。');}
 $('login').onsubmit=e=>{e.preventDefault();run(async()=>{await signInWithEmailAndPassword(auth,$('email').value,$('password').value);$('password').value='';});};
 $('logout').onclick=()=>run(()=>signOut(auth));
 onAuthStateChanged(auth,u=>{ $('loginCard').hidden=!!u;$('workspace').hidden=!u;$('logout').hidden=!u;if(u)load().then(()=>msg('読み込みました')).catch(e=>msg(e.message,true));else{users={};invalidate();msg('管理者アカウントでログインしてください');}});
@@ -102,7 +102,7 @@ function readableDiffs(diffs){return items(diffs).map(d=>{
 }).join('\n\n')||'参加状態・ロールに差分はありません。';}
 function readableResults(results){return items(results).map(r=>{
   const lines=[readableName(r.discordId,r.discordName)];
-  const texts={success:r.action==='kick'?'成功：2か月以上連続⭐0のためキックしました。':`成功：星ロールを⭐${r.star}へ変更しました。`,none:'変更なし：既に指定の星ロールです。',skip:`対象外：${r.reason||'変更対象ではありません'}`,blocked:`実行不可：${r.reason||'権限を確認してください'}`,failed:'失敗：Discordへの変更を完了できませんでした。','needs-reconciliation':'要確認：Discordの変更結果が未確定です。参加状態を取得し、確認してください。'};
+  const texts={success:r.action==='kick'?'成功：2か月以上連続⭐0のためキックしました。':r.star===0&&r.targetRoleId===null?'成功：⭐1〜⭐5の星ロールをすべて外しました。他のロールは維持しています。':`成功：星ロールを⭐${r.star}へ変更しました。`,none:r.star===0&&r.targetRoleId===null?'変更なし：星ロールは既にありません。':'変更なし：既に指定の星ロールです。',skip:`対象外：${r.reason||'変更対象ではありません'}`,blocked:`実行不可：${r.reason||'権限を確認してください'}`,failed:'失敗：Discordへの変更を完了できませんでした。','needs-reconciliation':'要確認：Discordの変更結果が未確定です。参加状態を取得し、確認してください。'};
   lines.push(texts[r.status]||'処理状況を確認してください。');if(r.error)lines.push(`エラー詳細：${r.error}`);return lines.join('\n');
 }).join('\n\n')||'Discordへの変更対象はいませんでした。';}
 function readableHistory(h){
@@ -113,7 +113,7 @@ function readableHistory(h){
     case 'collect':lines.push(readableDiffs(h.diffs));break;
     case 'save':lines.push(`${h.month}の名前・星数・返礼品対応状況を保存しました（${h.count}人）。Discordのロールは変更されません。`);break;
     case 'sync':lines.push(`対象月：${h.month}`,readableResults(h.results));break;
-    case 'role':lines.push(`${h.month}の星数に基づき、星ロールを⭐${h.star}へ変更しました。`);break;
+    case 'role':lines.push(h.star===0&&h.zeroRoleMode==='none'?`${h.month}の⭐0記録に基づき、⭐1〜⭐5の星ロールをすべて外しました。他のロールは維持しています。`:`${h.month}の星数に基づき、星ロールを⭐${h.star}へ変更しました。`);break;
     case 'kick':lines.push('2か月以上連続⭐0のためキックしました。BANではありません。');break;
     case 'join':lines.push('サーバーに参加しました。',h.invite?.status==='matched'?`使用招待：⭐${h.invite.initialStar}用`:'招待リンクを特定できませんでした。');break;
     case 'leave':lines.push('サーバーから退出しました。自主退出かキックかはこの通知のみでは判別できません。');break;
