@@ -20,12 +20,45 @@ export async function googleToken(env){
 export async function authenticate(request,env){
   const token=/^Bearer (.+)$/.exec(request.headers.get('Authorization')||'')?.[1];if(!token)throw new AppError('ログインしてください',401);
   const r=await timedFetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key='+encodeURIComponent(env.FIREBASE_WEB_API_KEY),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({idToken:token})});
-  const d=await r.json(),u=d.users?.[0];if(!r.ok||!u||u.disabled)throw new AppError('認証が無効です。再ログインしてください',401);
-  // accounts:lookup validates this project's token; also reject tokens issued before revocation.
-  const payload=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0))));
-  if(payload.auth_time<Number(u.validSince||0))throw new AppError('ログインが取り消されています。再ログインしてください',401);
-  if(!ids(env.ADMIN_UIDS).includes(u.localId))throw new AppError('管理者権限がありません',403);return u.localId;
-}
+  const d = await r.json();
+  const u = d.users?.[0];
+  
+  if (!env.FIREBASE_WEB_API_KEY?.trim()) {
+    throw new AppError(
+      'WorkerにFIREBASE_WEB_API_KEYが設定されていません',
+      503
+    );
+  }
+  
+  if (!r.ok) {
+    // TokenやAPIキーを表示せず、エラーの理由だけを表示します。
+    const reason = d.error?.details
+      ?.find(v => typeof v.reason === 'string')?.reason;
+    const message = d.error?.message || '';
+    const code = reason || (
+      /^[A-Z][A-Z0-9_]+$/.test(message)
+        ? message
+        : d.error?.status || 'UNKNOWN'
+    );
+  
+    throw new AppError(
+      `Firebase認証エラー（HTTP ${r.status}）：${code}`,
+      401
+    );
+  }
+  
+  if (!u) {
+    throw new AppError('Firebase認証：ユーザー情報がありません', 401);
+  }
+  
+  if (u.disabled) {
+    throw new AppError('Firebase認証：このユーザーは無効化されています', 401);
+  }
+    // accounts:lookup validates this project's token; also reject tokens issued before revocation.
+    const payload=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0))));
+    if(payload.auth_time<Number(u.validSince||0))throw new AppError('ログインが取り消されています。再ログインしてください',401);
+    if(!ids(env.ADMIN_UIDS).includes(u.localId))throw new AppError('管理者権限がありません',403);return u.localId;
+  }
 export class Database {
   constructor(env,token){this.env=env;this.token=token;}
   async request(path='',method='GET',body,extra={}){
