@@ -75,15 +75,15 @@ export class Manager{
             else{
               // Individual role routes preserve ALL non-star roles, including roles above this bot.
               for(const id of member.roleIds.filter(id=>ctx.starIds.includes(id)&&id!==row.targetRoleId))await discord.call(discord.base+'/members/'+row.discordId+'/roles/'+id,'DELETE',undefined,reason);
-              await discord.call(discord.base+'/members/'+row.discordId+'/roles/'+row.targetRoleId,'PUT',undefined,reason);
+              if(row.targetRoleId)await discord.call(discord.base+'/members/'+row.discordId+'/roles/'+row.targetRoleId,'PUT',undefined,reason);
             }
             const checked=await discord.member(row.discordId,ctx);
-            if(row.action==='kick'&&checked||row.action==='role'&&(!checked||currentStar(checked.roleIds,ctx.starIds)!==row.star))throw new AppError('変更後のDiscord状態を確認できませんでした');
+            if(row.action==='kick'&&checked||row.action==='role'&&(!checked||(row.star===0?checked.roleIds.some(id=>ctx.starIds.includes(id)):currentStar(checked.roleIds,ctx.starIds)!==row.star)))throw new AppError('変更後のDiscord状態を確認できませんでした');
             version=await db.readVersion();data=version.data;const user=data.users[row.discordId];
             if(row.action==='kick')Object.assign(user,{inServer:false,kickStatus:'kicked',lastKickedAt:Date.now(),currentRoleIds:[],currentRoles:[],currentStar:null,zeroStarStreak:row.zeroStarStreak});
-            else Object.assign(user,{currentRoleIds:checked.roleIds,currentRoles:checked.roles,currentStar:row.star,zeroStarStreak:row.zeroStarStreak,lastSyncedMonth:p.month});
+            else Object.assign(user,{currentRoleIds:checked.roleIds,currentRoles:checked.roles,currentStar:row.star===0?null:row.star,zeroStarStreak:row.zeroStarStreak,lastSyncedMonth:p.month});
             result={...row,status:'success'};delete result.running;
-            audit(data,row.action,{actor,month:p.month,discordId:row.discordId,star:row.star,planId:p.id});
+            audit(data,row.action,{actor,month:p.month,discordId:row.discordId,star:row.star,zeroRoleMode:'none',planId:p.id});
           }catch(e){
             version=await db.readVersion();data=version.data;result={...row,status:started?'needs-reconciliation':'failed',error:String(e.message).slice(0,500)};delete result.running;
           }
