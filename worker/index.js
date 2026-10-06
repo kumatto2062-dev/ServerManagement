@@ -16,6 +16,48 @@ export default {
       if(!methods[path])throw new AppError('APIが見つかりません',404);
       if(!methods[path].includes(request.method))throw new AppError('この操作方法は許可されていません',405);
       const actor=await authenticate(request,env);
+      const required = [
+        'FIREBASE_SERVICE_ACCOUNT_JSON',
+        'FIREBASE_DATABASE_URL',
+        'DISCORD_TOKEN',
+        'DISCORD_GUILD_ID',
+        'STAR_ROLE_1',
+        'STAR_ROLE_2',
+        'STAR_ROLE_3',
+        'STAR_ROLE_4',
+        'STAR_ROLE_5'
+      ];
+      
+      const missing = required.filter(
+        name => typeof env[name] !== 'string' || !env[name].trim()
+      );
+      
+      if (missing.length) {
+        throw new AppError(
+          'Workerに設定がありません：' + missing.join(', '),
+          503
+        );
+      }
+      
+      let account;
+      try {
+        account = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON);
+      } catch {
+        throw new AppError(
+          'サービスアカウントJSONの形式が不正です',
+          503
+        );
+      }
+      
+      if (
+        typeof account?.private_key !== 'string' ||
+        typeof account?.client_email !== 'string'
+      ) {
+        throw new AppError(
+          'サービスアカウントJSONにprivate_keyまたはclient_emailがありません',
+          503
+        );
+      }
       let body;if(request.method==='POST'){const text=await request.text();if(text.length>2000000)throw new AppError('送信データが大きすぎます',413);try{body=JSON.parse(text);}catch{throw new AppError('送信形式が不正です');}if(!body||typeof body!=='object'||Array.isArray(body))throw new AppError('送信形式が不正です');}
       const db=new Database(env,await googleToken(env));return respond(await new Manager(db,new Discord(env),env,actor).execute(path,body));
     }catch(e){return respond({error:e.status?e.message:'処理を完了できませんでした。APIの設定と接続を確認してください'},e.status||500);}
