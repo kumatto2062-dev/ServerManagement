@@ -2,7 +2,8 @@ import {Database,Discord,AppError,authenticate,googleToken,ids} from './platform
 import {Manager} from './manager.js';
 export default {
   async fetch(request,env){
-    const origin=request.headers.get('Origin'),allowed=ids(env.ALLOWED_ORIGINS);
+    const origin = request.headers.get('Origin');
+    const allowed = ['https://kumatto2062-dev.github.io'];
     const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Origin','X-Content-Type-Options':'nosniff'};
     if(origin&&allowed.includes(origin)){headers['Access-Control-Allow-Origin']=origin;headers['Access-Control-Allow-Headers']='Authorization, Content-Type';headers['Access-Control-Allow-Methods']='GET, POST, OPTIONS';}
     const respond=(v,status=200)=>new Response(JSON.stringify(v),{status,headers});
