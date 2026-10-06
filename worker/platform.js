@@ -67,9 +67,9 @@ export class Discord {
     // Discord breaks equal-position ties by snowflake ID; the lower ID is the higher role.
     const higher=(a,b)=>a.position!==b.position?a.position>b.position:BigInt(a.id)<BigInt(b.id);
     const highest=roleIds=>roleIds.map(id=>map[id]).filter(Boolean).reduce((a,b)=>higher(a,b)?a:b,map[guild.id]);
-    const top=highest(bot.roles),starIds=Array.from({length:6},(_,i)=>this.env['STAR_ROLE_'+i]);
-    if(starIds.some(id=>!/^\d{17,20}$/.test(id||''))||new Set(starIds).size!==6)throw new AppError('⭐0〜⭐5のロールIDを6種類設定してください',503);
-    for(const id of starIds)if(!map[id]||map[id].managed||id===guild.id||!higher(top,map[id]))throw new AppError('星ロールが存在しない、またはBotより上位です',503);
+    const top=highest(bot.roles),starIds=[null,...Array.from({length:5},(_,i)=>this.env['STAR_ROLE_'+(i+1)])];
+    if(starIds.slice(1).some(id=>!/^\d{17,20}$/.test(id||''))||new Set(starIds.slice(1)).size!==5)throw new AppError('⭐1〜⭐5のロールIDを5種類設定してください',503);
+    for(const id of starIds.filter(Boolean))if(!map[id]||map[id].managed||id===guild.id||!higher(top,map[id]))throw new AppError('星ロールが存在しない、またはBotより上位です',503);
     return {guild,map,starIds,normalize:m=>({discordId:m.user.id,discordName:m.user.global_name||m.user.username,displayName:m.nick||m.user.global_name||m.user.username,joinedAt:Date.parse(m.joined_at)||null,inServer:true,bot:!!m.user.bot,owner:m.user.id===guild.owner_id,manageable:m.user.id!==guild.owner_id&&higher(top,highest(m.roles))&&has(268435456n),kickable:m.user.id!==guild.owner_id&&higher(top,highest(m.roles))&&has(2n),roleIds:[...m.roles].sort(),roles:m.roles.map(id=>({id,name:map[id]?.name||id}))})};
   }
   async members(ctx){
