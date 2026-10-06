@@ -26,7 +26,16 @@ export function planRows(data,members,month,ctx,env,userId){
   if(userId&&!users[userId])throw new AppError('参加者が見つかりません');
   return buildPlan(users,members,month,ctx.starIds,ids(env.PROTECTED_DISCORD_IDS));
 }
-const fingerprint=row=>JSON.stringify({...row,currentRoleIds:[...row.currentRoleIds].sort()});
+const fingerprint = row => JSON.stringify({
+  discordId: row.discordId,
+  discordName: row.discordName,
+  star: row.star ?? null,
+  zeroStarStreak: row.zeroStarStreak ?? 0,
+  currentRoleIds: list(row.currentRoleIds).sort(),
+  action: row.action,
+  targetRoleId: row.targetRoleId ?? null,
+  reason: row.reason ?? ''
+});
 export class Manager{
   constructor(db,discord,env,actor){Object.assign(this,{db,discord,env,actor});}
   async execute(path,body){
