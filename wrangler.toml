@@ -4,3 +4,5 @@ compatibility_date = "2026-10-01"
 # Secrets and configuration are added in Cloudflare Settings > Variables and Secrets.
 # Do not put Discord Token or Firebase service-account JSON here.
 keep_vars = true
+[vars]
+FIREBASE_WEB_API_KEY = "AIzaSyBzd5Azh-0ij-bZPTC1g641pZakES-4ARM"
